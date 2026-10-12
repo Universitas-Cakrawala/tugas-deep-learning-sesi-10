@@ -470,13 +470,106 @@ anggota kelompok lain. Jangan mengisi bagian ini dari laporan implementasi
 utama sebelum jawaban anggota terkait digabungkan.}
 
 \subsection{Shape Tensor}
-\todo{Jawaban Pertanyaan Analisis 1.}
+Untuk konfigurasi $d\_model=8$, $h=2$ (sehingga $d\_head = d\_model/h = 4$),
+$T=4$, dan $B=2$, shape tensor pada setiap tahap \texttt{MultiHeadAttention}
+adalah sebagai berikut. Nilai ini sesuai dengan hasil pemeriksaan program
+pada \code{shape\_and\_parameter\_verification} di
+\code{attention\_transformer.py} dan Tabel~\ref{tab:verification-summary}.
+
+\begin{table}[H]
+    \centering
+    \caption{Shape tensor pada setiap tahap multi-head attention}
+    \label{tab:shape-tensor-analisis}
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabular}{l l l}
+        \toprule
+        Tensor & Shape & Keterangan \\
+        \midrule
+        Input & $(B, T, d\_model) = (2, 4, 8)$ & masukan blok transformer \\
+        Query/Key/Value (sebelum split head) & $(2, 4, 8)$ & keluaran proyeksi linear $q, k, v$ \\
+        Query/Key/Value (setelah split head) & $(B, h, T, d\_head) = (2, 2, 4, 4)$ & setelah \code{view} + \code{transpose(1,2)} \\
+        Matriks skor $QK^\top/\sqrt{d_k}$ & $(B, h, T, T) = (2, 2, 4, 4)$ & skor sebelum softmax, per head \\
+        Bobot attention (setelah softmax) & $(2, 2, 4, 4)$ & setiap baris berjumlah 1 \\
+        Output per head ($\text{weights} \times V$) & $(2, 2, 4, 4)$ & sebelum concat head \\
+        Output setelah concat head & $(B, T, d\_model) = (2, 4, 8)$ & \code{transpose} + \code{view} kembali ke $d\_model$ \\
+        Keluaran akhir MHA & $(2, 4, 8)$ & setelah \code{output\_projection} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Dimensi batch $B$ dan panjang sekuens $T$ dipertahankan di seluruh tahap,
+sedangkan dimensi fitur berpindah dari $d\_model=8$ menjadi $h \times
+d\_head = 2 \times 4$ saat kepala attention dipisah, lalu kembali menjadi
+$d\_model=8$ setelah hasil setiap kepala digabungkan (concat) dan melewati
+\code{output\_projection}. Matriks skor dan bobot attention berbentuk
+$(B, h, T, T)$ karena setiap query dari tiap kepala dibandingkan dengan
+seluruh $T$ key pada kepala yang sama.
 
 \subsection{Scaling pada Attention}
-\todo{Jawaban Pertanyaan Analisis 2.}
+Skor attention $QK^\top$ dibagi dengan $\sqrt{d_k}$ (pada implementasi ini
+$\sqrt{d\_head} = \sqrt{4} = 2$) karena, jika elemen $q$ dan $k$ diasumsikan
+memiliki rata-rata $0$ dan varians $1$ serta saling bebas, hasil dot product
+$q \cdot k = \sum_{i=1}^{d_k} q_i k_i$ memiliki varians yang tumbuh linear
+terhadap $d_k$. Tanpa pembagian ini, magnitudo skor akan semakin besar
+seiring bertambahnya $d_k$, sehingga skor antar key bisa memiliki selisih
+yang sangat besar. Pembagian dengan $\sqrt{d_k}$ menormalkan varians skor
+agar tetap mendekati $1$ berapa pun nilai $d_k$, sehingga skor berada pada
+rentang yang stabil sebelum masuk ke softmax.
+
+Jika pembagian tersebut dihilangkan, skor mentah $QK^\top$ cenderung memiliki
+magnitudo besar (terutama untuk $d_k$ yang besar). Softmax dari skor bermagnitudo
+besar akan \emph{saturasi}: distribusi bobot menjadi sangat tajam dan mendekati
+one-hot pada key dengan skor tertinggi, sementara bobot pada key lain mendekati
+nol. Pada daerah saturasi ini, turunan fungsi softmax mendekati nol, sehingga
+gradien yang mengalir balik ke $Q$ dan $K$ saat training menjadi sangat kecil
+(vanishing gradient). Akibatnya proses optimisasi melambat atau bahkan
+berhenti belajar, dan perilaku ini akan semakin parah ketika $d\_model$
+atau $d\_head$ diperbesar.
 
 \subsection{Padding Mask dan Causal Mask}
-\todo{Jawaban Pertanyaan Analisis 3.}
+Kedua jenis mask pada \code{attention\_transformer.py} bekerja dengan
+mekanisme yang sama, yaitu memberi nilai sangat negatif
+(\code{torch.finfo(scores.dtype).min}) pada skor di posisi terlarang sebelum
+softmax dijalankan (fungsi \code{scaled\_dot\_product\_attention}), sehingga
+bobot attention pada posisi tersebut menjadi $0$ setelah softmax. Perbedaan
+keduanya terletak pada \emph{posisi mana yang dilarang} dan \emph{alasan
+pelarangannya}:
+
+\begin{itemize}
+    \item \textbf{Padding mask} melarang attention membaca token padding
+    (token isian yang ditambahkan agar panjang sekuens dalam satu batch
+    sama) pada dimensi \emph{key}. Mask ini sama untuk seluruh posisi query
+    dalam satu sekuens --- pada implementasi ini direpresentasikan sebagai
+    \code{padding\_mask[:, None, None, :]} berbentuk $(B, 1, 1, T)$ yang
+    di-broadcast ke seluruh head dan seluruh baris query. Tujuannya adalah
+    mencegah token padding yang tidak memiliki makna ikut memengaruhi hasil
+    representasi token lain.
+    \item \textbf{Causal mask} melarang query pada posisi $t$ membaca key
+    pada posisi $t' > t$ (masa depan), terlepas dari apakah token tersebut
+    padding atau bukan. Mask ini dibentuk dengan matriks segitiga atas
+    \code{torch.triu(..., diagonal=1)} berbentuk $(T, T)$ yang sama untuk
+    seluruh batch dan head. Tujuannya adalah menjaga sifat autoregresif,
+    yaitu prediksi pada posisi $t$ hanya boleh bergantung pada token
+    $1, \dots, t$.
+\end{itemize}
+
+Bukti bahwa kedua mask bekerja dengan benar ditunjukkan oleh
+\code{masking\_verification}: bobot attention maksimum pada posisi terlarang
+untuk padding mask dan causal mask sama-sama $0.0$ (lihat
+Tabel~\ref{tab:verification-summary}), sementara jumlah bobot pada setiap
+baris yang valid tetap $1.0$.
+
+Jika causal mask tidak diterapkan pada model autoregresif, query pada
+posisi $t$ dapat melihat key pada posisi $t' > t$, yaitu token yang
+seharusnya belum ``diketahui'' model pada saat prediksi dibuat. Saat
+training, model dapat ``mencontek'' dengan memanfaatkan informasi token
+masa depan untuk memprediksi token saat ini, sehingga loss training terlihat
+rendah namun model tidak benar-benar mempelajari distribusi bersyarat
+$P(x_t \mid x_{<t})$ yang sesungguhnya. Pada saat inferensi, token masa
+depan belum tersedia (dihasilkan satu per satu), sehingga terjadi
+ketidaksesuaian antara kondisi training dan inferensi (train--inference
+mismatch) yang membuat kualitas prediksi menurun drastis dibandingkan hasil
+pada data training.
 
 \subsection{Positional Encoding}
 \todo{Jawaban Pertanyaan Analisis 4.}
