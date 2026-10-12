@@ -1,0 +1,523 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{babel}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{caption}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    pdftitle={Laporan Praktikum Deep Learning Sesi 10},
+    pdfauthor={Kelompok 5}
+}
+
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{teal},
+    frame=single,
+    breaklines=true,
+    columns=fullflexible,
+    showstringspaces=false
+}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{\textbf{Laporan Praktikum Deep Learning Sesi 10}\\
+Attention dan Blok Transformer Sederhana}
+\author{Kelompok 5}
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    {\large \textbf{LAPORAN PRAKTIKUM DEEP LEARNING}\par}
+    \vspace{0.8cm}
+    {\Large \textbf{Attention dan Blok Transformer Sederhana}\par}
+    \vspace{1.5cm}
+    {\large \textbf{Cakrawala University}\par}
+    \vspace{1.5cm}
+
+    % Ganti dengan logo institusi jika diperlukan.
+    % \includegraphics[width=0.22\textwidth]{logo.png}
+    \vspace{1.5cm}
+
+    {\large \textbf{Kelompok 5}\par}
+    \vspace{0.5cm}
+    \begin{table}[H]
+        \centering
+        \caption*{Identitas anggota kelompok}
+        \renewcommand{\arraystretch}{1.3}
+        \begin{tabular}{c l l}
+            \toprule
+            \textbf{No.} & \textbf{Nama} & \textbf{ID Mahasiswa} \\
+            \midrule
+            1 & Tita Noviana & 24120500011 \\
+            2 & Titanio Yudista & 24120500031 \\
+            3 & Suci Fransisca Sisilia R & 24120500008 \\
+            4 & Fajar Dwiharjo & 24130500010 \\
+            5 & Rafel Ramadhan & 24130500001 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \vfill
+    {\large \today\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Pendahuluan}
+
+\subsection{Latar Belakang}
+Attention memungkinkan setiap posisi dalam sekuens menghitung bobot terhadap
+posisi lain berdasarkan kesesuaian query dan key, kemudian menggabungkan value
+secara berbobot. Transformer memanfaatkan mekanisme ini tanpa pemrosesan
+sekuens berulang, sehingga hubungan antarposisi dapat diperiksa melalui
+matriks attention.
+
+\subsection{Tujuan Praktikum}
+Praktikum ini bertujuan mengimplementasikan scaled dot-product attention,
+multi-head attention, masking, positional encoding sinusoidal, dan blok
+transformer sederhana. Implementasi diverifikasi melalui perhitungan manual,
+pemeriksaan shape, jumlah parameter, bobot attention, serta uji fungsional pada
+data sintetis.
+
+\subsection{Batasan Laporan}
+Laporan ini berfokus pada bagian Instruksi praktikum. Jawaban Pertanyaan
+Analisis disiapkan pada bagian khusus oleh anggota kelompok yang bertanggung
+jawab dan tidak diisi dalam template ini.
+
+\section{Konfigurasi dan Lingkungan}
+
+\begin{table}[H]
+    \centering
+    \caption{Konfigurasi eksperimen}
+    \label{tab:configuration}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l l}
+        \toprule
+        Parameter & Nilai \\
+        \midrule
+        Framework & PyTorch \\
+        Seed & 10 \\
+        Format tensor & \code{(B,T,d\_model)} \\
+        Batch size, $B$ & 2 \\
+        Panjang sekuens, $T$ & 4 \\
+        Dimensi model, $d_{\text{model}}$ & 8 \\
+        Jumlah head, $h$ & 2 \\
+        Dimensi per head, $d_{\text{head}}$ & 4 \\
+        Dimensi feed-forward, $d_{\text{ff}}$ & 32 \\
+        Aktivasi FFN & GELU \\
+        Optimizer & Adam \\
+        Learning rate & 0.02 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Artefak Reproduksi}
+Source code utama tersedia pada \code{attention\_transformer.py}. Hasil
+verifikasi disimpan dalam \code{artifacts/verification\_report.json}, ringkasan
+dalam \code{artifacts/verification\_report.md}, dan metrik pelatihan dalam
+\code{artifacts/training\_metrics.csv}.
+
+\section{Dasar Implementasi}
+
+\subsection{Scaled Dot-Product Attention}
+Scaled dot-product attention dihitung menggunakan:
+\begin{equation}
+    \operatorname{Attention}(Q,K,V)
+    =
+    \operatorname{softmax}\left(\frac{QK^{T}}{\sqrt{d_k}}\right)V.
+\end{equation}
+Pada implementasi, skor dihitung dengan perkalian $QK^T$, dibagi dengan
+$\sqrt{d_k}$, lalu diproses oleh softmax pada dimensi key. Jika mask diberikan,
+posisi terlarang diisi dengan nilai sangat negatif sebelum softmax. Fungsi
+mengembalikan output, skor, dan bobot attention agar setiap tahap dapat
+diverifikasi.
+
+\subsection{Multi-Head Attention}
+Input diproyeksikan secara terpisah menjadi $Q$, $K$, dan $V$ dengan dimensi
+akhir 8. Masing-masing tensor diubah dari $(B,T,8)$ menjadi
+$(B,h,T,d_{\text{head}})=(B,2,T,4)$. Attention dihitung secara paralel pada
+dua head, hasilnya digabung kembali menjadi $(B,T,8)$, kemudian melewati
+output projection.
+
+\subsection{Masking}
+Padding mask diterapkan pada dimensi key untuk menghilangkan pengaruh token
+padding. Pada contoh batch, posisi padding adalah posisi keempat pada sampel
+pertama serta posisi ketiga dan keempat pada sampel kedua. Causal mask berupa
+matriks segitiga atas yang melarang setiap query melihat posisi masa depan.
+Mask diterapkan sebelum softmax sehingga bobot posisi terlarang menjadi nol.
+Implementasi juga menolak baris yang seluruh key-nya dilarang.
+
+\subsection{Positional Encoding}
+Positional encoding sinusoidal ditambahkan ke embedding input menggunakan
+\begin{align}
+ PE_{(p,2i)} &= \sin\left(\frac{p}{10000^{2i/d_{\text{model}}}}\right),\\
+ PE_{(p,2i+1)} &= \cos\left(\frac{p}{10000^{2i/d_{\text{model}}}}\right).
+\end{align}
+Implementasi menghasilkan encoding berukuran $(4,8)$ dan menambahkannya
+secara broadcasting ke input berukuran $(2,4,8)$.
+
+\section{Verifikasi Perhitungan Manual}
+
+\subsection{Data Contoh}
+Gunakan data wajib dari instruksi:
+\begin{align*}
+q  &= [1,0,1,0], &
+k_1 &= [1,0,0,0], &
+k_2 &= [0,1,0,0],\\
+v_1 &= [1,0], &
+v_2 &= [0,1]. &&
+\end{align*}
+
+\subsection{Perhitungan Tangan}
+\begin{align*}
+qK^T &= [1,0],\\
+\frac{qK^T}{\sqrt{d_k}} &= [0.5,0],\\
+\operatorname{softmax}([0.5,0]) &=
+[0.622459,\;0.377541],\\
+\operatorname{Attention}(q,K,V) &=
+[0.622459,\;0.377541].
+\end{align*}
+
+\subsection{Perbandingan dengan Program}
+\begin{table}[H]
+    \centering
+    \caption{Perbandingan hasil manual dan program}
+    \label{tab:manual-verification}
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabular}{l l l}
+        \toprule
+        Komponen & Hasil manual & Hasil program \\
+        \midrule
+        Skor terskala & $[0.5, 0]$ & $[0.5, 0]$ \\
+        Bobot attention & $[0.622459, 0.377541]$ & $[0.622459, 0.377541]$ \\
+        Output & $[0.622459, 0.377541]$ & $[0.622459, 0.377541]$ \\
+        Error maksimum absolut & \multicolumn{2}{c}{$0.0$} \\
+        Status & \multicolumn{2}{c}{PASS} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Multi-Head Attention dan Jumlah Parameter}
+
+\subsection{Alur dan Shape}
+Alur implementasi adalah proyeksi linear Q/K/V, split head, scaled
+dot-product attention, transpose dan concat antar-head, kemudian output
+projection. Untuk konfigurasi eksperimen, setiap proyeksi linear berukuran
+$8\times8$ dengan 8 bias.
+
+\begin{table}[H]
+    \centering
+    \caption{Jumlah parameter multi-head attention}
+    \label{tab:mha-parameters}
+    \renewcommand{\arraystretch}{1.25}
+    \begin{tabular}{l r r r}
+        \toprule
+        Komponen & Bobot & Bias & Total \\
+        \midrule
+        Proyeksi Q & $8\times8=64$ & 8 & 72 \\
+        Proyeksi K & $8\times8=64$ & 8 & 72 \\
+        Proyeksi V & $8\times8=64$ & 8 & 72 \\
+        Output projection & $8\times8=64$ & 8 & 72 \\
+        \midrule
+        Total manual & 256 & 32 & \textbf{288} \\
+        Total program & \multicolumn{2}{c}{\textbf{288}} & \textbf{PASS} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Masking}
+
+\subsection{Padding Mask}
+Mask padding yang digunakan adalah
+\[
+\begin{bmatrix}
+0&0&0&1\\
+0&0&1&1
+\end{bmatrix},
+\]
+dengan 1 menunjukkan key yang dilarang. Hasil program menunjukkan bobot
+terbesar pada seluruh posisi terlarang adalah $0.0$. Jumlah setiap baris
+attention berada dalam toleransi $1.2\times10^{-7}$ dari satu.
+
+\begin{table}[H]
+    \centering
+    \caption{Bukti padding mask}
+    \label{tab:padding-mask}
+    \begin{tabular}{l l}
+        \toprule
+        Pemeriksaan & Hasil \\
+        \midrule
+        Posisi padding yang dilarang & Sampel 1: $k_4$; sampel 2: $k_3,k_4$ \\
+        Bobot maksimum posisi terlarang & 0.0 \\
+        Deviasi maksimum jumlah baris dari 1 & $1.2\times10^{-7}$ \\
+        Status & PASS \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Causal Mask}
+Mask causal yang digunakan adalah
+\[
+\begin{bmatrix}
+0&1&1&1\\
+0&0&1&1\\
+0&0&0&1\\
+0&0&0&0
+\end{bmatrix}.
+\]
+Dengan demikian, query pada posisi $t$ hanya dapat memperhatikan key pada
+posisi hingga $t$. Hasil program menunjukkan bobot maksimum pada posisi masa
+depan adalah $0.0$ dan setiap baris valid tetap ternormalisasi.
+
+\begin{table}[H]
+    \centering
+    \caption{Bukti causal mask}
+    \label{tab:causal-mask}
+    \begin{tabular}{l l}
+        \toprule
+        Pemeriksaan & Hasil \\
+        \midrule
+        Posisi masa depan yang dilarang & Segitiga atas \\
+        Bobot maksimum posisi terlarang & 0.0 \\
+        Deviasi maksimum jumlah baris dari 1 & $1.2\times10^{-7}$ \\
+        Baris tanpa key valid ditolak & Ya \\
+        Status & PASS \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Positional Encoding}
+
+\begin{table}[H]
+    \centering
+    \caption{Verifikasi positional encoding}
+    \label{tab:positional-encoding}
+    \begin{tabular}{l l}
+        \toprule
+        Pemeriksaan & Hasil \\
+        \midrule
+        Shape encoding & $(4,8)$ \\
+        Shape setelah broadcasting & $(2,4,8)$ \\
+        Posisi berbeda & Ya \\
+        Status & PASS \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Nilai dua posisi pertama yang dihasilkan program adalah
+\[
+\begin{aligned}
+PE_0 &= [0,1,0,1,0,1,0,1],\\
+PE_1 &= [0.841471,0.540302,0.099833,0.995004,
+0.0099998,0.999950,0.0010000,1.000000].
+\end{aligned}
+\]
+Keduanya berbeda, sehingga pemeriksaan runtime untuk keberbedaan posisi
+dinyatakan lulus.
+
+\section{Transformer Block}
+
+\subsection{Struktur Block}
+Block transformer terdiri atas multi-head attention, residual connection,
+layer normalization, feed-forward network, residual connection kedua, dan
+layer normalization kedua.
+Dalam kode, urutannya adalah
+\[
+X \longrightarrow \operatorname{MHA}(X)
+\longrightarrow \operatorname{LayerNorm}(X+\operatorname{MHA}(X))
+\longrightarrow \operatorname{FFN}
+\longrightarrow \operatorname{LayerNorm}(\cdot).
+\]
+FFN menggunakan layer linear $8\rightarrow32$, aktivasi GELU, dan layer linear
+$32\rightarrow8$.
+
+\begin{table}[H]
+    \centering
+    \caption{Shape tensor pada transformer block}
+    \label{tab:shapes}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l c}
+        \toprule
+        Tensor/tahap & Shape \\
+        \midrule
+        Input embedding & $(2,4,8)$ \\
+        Q, K, V sebelum split head & $(2,4,8)$ \\
+        Q, K, V sesudah split head & $(2,2,4,4)$ \\
+        Matriks skor per head & $(2,2,4,4)$ \\
+        Bobot attention per head & $(2,2,4,4)$ \\
+        Keluaran head sebelum concat & $(2,2,4,4)$ \\
+        Setelah concat & $(2,4,8)$ \\
+        Keluaran MHA & $(2,4,8)$ \\
+        Keluaran FFN & $(2,4,8)$ \\
+        Keluaran akhir block & $(2,4,8)$ \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \caption{Jumlah parameter transformer block}
+    \label{tab:block-parameters}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l r}
+        \toprule
+        Komponen & Jumlah parameter \\
+        \midrule
+        Multi-head attention & 288 \\
+        Linear FFN pertama & 288 \\
+        Linear FFN kedua & 264 \\
+        Dua layer normalization & 32 \\
+        \midrule
+        Total manual & \textbf{872} \\
+        Total program & \textbf{872} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\section{Uji Fungsional}
+
+\subsection{Data dan Model}
+Uji fungsional menggunakan klasifikasi sekuens pendek menjadi dua kelas pada
+data sintetis. Label dibentuk secara deterministik dari tanda rata-rata fitur
+pertama sepanjang sekuens.
+Data train terdiri atas 32 sekuens dan data test terdiri atas 64 sekuens.
+Setiap sekuens memiliki panjang 4 dan dimensi fitur 8. Model menambahkan
+positional encoding, memproses input dengan satu transformer block, melakukan
+mean pooling pada dimensi sekuens, lalu menghasilkan dua logit kelas.
+
+\subsection{Konfigurasi Pelatihan}
+Model dilatih selama 100 epoch menggunakan Adam dengan learning rate $0.02$
+dan cross-entropy loss. Seed acak ditetapkan ke 10. Data train diproses
+sebagai satu batch penuh pada setiap epoch sehingga penurunan loss dan
+kenaikan akurasi dapat dipakai sebagai bukti kemampuan overfit pada batch
+kecil.
+
+\subsection{Hasil Pelatihan dan Overfit Satu Batch}
+\begin{table}[H]
+    \centering
+    \caption{Ringkasan hasil uji fungsional}
+    \label{tab:functional-test}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l r}
+        \toprule
+        Metrik & Nilai \\
+        \midrule
+        Loss awal & 0.734517 \\
+        Loss akhir & 0.000168 \\
+        Akurasi train akhir & 1.0000 \\
+        Akurasi test & 0.8750 \\
+        Overfit satu batch & PASS \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Metrik per epoch tersedia pada
+\code{artifacts/training\_metrics.csv}. Kurva loss dan akurasi dapat dibuat
+dari file tersebut jika visualisasi diperlukan.
+
+\section{Verifikasi Implementasi}
+
+\begin{table}[H]
+    \centering
+    \caption{Ringkasan pemeriksaan implementasi}
+    \label{tab:verification-summary}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{l c l}
+        \toprule
+        Pemeriksaan & Status & Bukti \\
+        \midrule
+        Perhitungan manual attention & PASS & Error maksimum $0.0$ \\
+        Jumlah parameter MHA & PASS & 288 = 288 \\
+        Jumlah parameter block & PASS & 872 = 872 \\
+        Shape tensor & PASS & Assertion runtime \\
+        Padding mask & PASS & Bobot terlarang $0.0$ \\
+        Causal mask & PASS & Bobot masa depan $0.0$ \\
+        Positional encoding & PASS & Shape dan posisi berbeda \\
+        Overfit satu batch & PASS & Akurasi train 1.0000 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Seluruh pemeriksaan dilakukan dengan assertion runtime pada
+\code{attention\_transformer.py}. Ringkasan numerik lengkap dapat dilihat pada
+\code{artifacts/verification\_report.json}; ringkasannya tersedia pada
+\code{artifacts/verification\_report.md}.
+
+\section{Pertanyaan Analisis}
+
+\textit{Bagian ini sengaja disediakan sebagai template dan dikerjakan oleh
+anggota kelompok lain. Jangan mengisi bagian ini dari laporan implementasi
+utama sebelum jawaban anggota terkait digabungkan.}
+
+\subsection{Shape Tensor}
+\todo{Jawaban Pertanyaan Analisis 1.}
+
+\subsection{Scaling pada Attention}
+\todo{Jawaban Pertanyaan Analisis 2.}
+
+\subsection{Padding Mask dan Causal Mask}
+\todo{Jawaban Pertanyaan Analisis 3.}
+
+\subsection{Positional Encoding}
+\todo{Jawaban Pertanyaan Analisis 4.}
+
+\subsection{Layer Normalization}
+\todo{Jawaban Pertanyaan Analisis 5.}
+
+\subsection{Kesalahan Implementasi}
+\todo{Jawaban Pertanyaan Analisis 6.}
+
+\subsection{Kaitan dengan Model Recurrent}
+\todo{Jawaban Pertanyaan Analisis 7.}
+
+\subsection{Causal dan Bidirectional Attention}
+\todo{Jawaban Pertanyaan Analisis 8.}
+
+\subsection{Pengayaan NON-RPS}
+\todo{Jawaban Pertanyaan Analisis 9.}
+
+\section{Kesimpulan}
+Bagian Instruksi berhasil diimplementasikan dan diverifikasi. Perhitungan
+manual scaled dot-product attention menghasilkan error maksimum absolut
+$0.0$. Multi-head attention memiliki 288 parameter dan transformer block
+memiliki 872 parameter, sesuai dengan perhitungan manual. Padding mask dan
+causal mask menghasilkan bobot nol pada seluruh posisi terlarang. Positional
+encoding menghasilkan shape yang sesuai, yaitu $(4,8)$ sebelum broadcasting
+dan $(2,4,8)$ setelah ditambahkan ke input. Pada uji fungsional, loss turun
+dari $0.734517$ menjadi $0.000168$ dan akurasi train mencapai $1.0000$,
+sehingga kriteria overfit satu batch terpenuhi. Akurasi test yang diperoleh
+adalah $0.8750$ pada data sintetis yang digunakan.
+
+\appendix
+\section{Perintah Menjalankan Program}
+\begin{lstlisting}[language=bash]
+python attention_transformer.py
+\end{lstlisting}
+
+\section{Kode atau Output Tambahan}
+Source code lengkap tersedia pada \code{attention\_transformer.py}. Output
+verifikasi yang digunakan untuk mengisi laporan ini tersedia pada
+\code{artifacts/verification\_report.json}, sedangkan metrik per epoch tersedia
+pada \code{artifacts/training\_metrics.csv}.
+
+\end{document}
