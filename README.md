@@ -318,11 +318,13 @@ diabaikan oleh `.gitignore` dan tidak perlu diunggah ke GitHub.
 - [x] Template laporan LaTeX.
 - [x] Mengisi Pertanyaan Analisis 1--3 (shape tensor, scaling attention,
   padding/causal mask).
-- [ ] Mengisi Pertanyaan Analisis 4--9 oleh anggota yang bertanggung jawab.
-- [ ] Menambahkan grafik training ke laporan.
+- [x] Mengisi Pertanyaan Analisis 4--6 (positional encoding, layer normalization,
+  debugging kesalahan implementasi .contiguous()).
+- [x] Mengisi Pertanyaan Analisis 7--9 (linimasa evolusi RNN, causal vs bidirectional,
+  pengayaan modern RoPE).
 - [x] Mengompilasi PDF laporan akhir.
-- [ ] Memeriksa PDF akhir secara visual untuk memastikan tabel tidak terpotong,
-  persamaan benar, dan referensi gambar tidak hilang.
+- [x] Memeriksa PDF akhir secara visual untuk memastikan tabel tidak terpotong,
+  persamaan benar, dan referensi kode tepat.
 
 ## Catatan Scope
 
