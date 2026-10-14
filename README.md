@@ -3,10 +3,24 @@
 Implementasi mekanisme **attention** dan **blok transformer sederhana** untuk
 Praktikum Deep Learning Sesi 10.
 
-Repository ini mengerjakan bagian **Instruksi** pada
-[`DL_Ass_10.pdf`](./DL_Ass_10.pdf). Bagian **Pertanyaan Analisis 1--9** tidak
-dikerjakan di source code ini karena menjadi tanggung jawab anggota kelompok
-yang lain.
+Repository ini mengerjakan bagian **Instruksi** dan mendokumentasikan jawaban
+**Pertanyaan Analisis 1--9** pada laporan
+[`Laporan_Tugas_Deep_Learning_Sesi_10.pdf`](./Laporan_Tugas_Deep_Learning_Sesi_10.pdf).
+Source code tetap berfokus pada verifikasi implementasi, sedangkan pembahasan
+konseptual dan konteks evolusi arsitektur ditulis pada laporan.
+
+## Identitas Kelompok
+
+**Kelompok 5 — Cakrawala University**
+
+| No. | Nama | NIM | Kontribusi |
+|---:|---|---:|---:|
+| 1 | Tita Noviana | 24120500011 | 25% |
+| 2 | Titanio Yudista | 24120500031 | 25% |
+| 3 | Suci Fransisca Sisilia R | 24120500008 | 25% |
+| 4 | Fajar Dwiharjo | 24130500010 | 25% |
+
+Total kontribusi kelompok: **100%**.
 
 ## Tujuan
 
@@ -50,8 +64,10 @@ Implementasi dan verifikasi yang tersedia mencakup:
 - [`artifacts/training_metrics.csv`](./artifacts/training_metrics.csv): loss
   dan akurasi setiap epoch.
 - [`Laporan_Tugas_Deep_Learning_Sesi_10.tex`](./Laporan_Tugas_Deep_Learning_Sesi_10.tex):
-  template laporan LaTeX dengan tabel identitas anggota Kelompok 5, tabel
-  hasil, dan placeholder bagian analisis.
+  laporan LaTeX lengkap dengan tabel identitas anggota Kelompok 5, hasil
+  eksperimen, jawaban Pertanyaan Analisis 1--9, dan hyperlink artefak.
+- [`Laporan_Tugas_Deep_Learning_Sesi_10.pdf`](./Laporan_Tugas_Deep_Learning_Sesi_10.pdf):
+  hasil kompilasi laporan LaTeX.
 - [`DL_Ass_10.pdf`](./DL_Ass_10.pdf): instruksi resmi praktikum.
 
 ## Konfigurasi Eksperimen
@@ -202,10 +218,9 @@ bukan sebagai klaim performa generalisasi pada dataset besar.
 
 ## Template Laporan
 
-Template laporan tersedia pada
+Laporan tersedia pada
 [`Laporan_Tugas_Deep_Learning_Sesi_10.tex`](./Laporan_Tugas_Deep_Learning_Sesi_10.tex).
-Template tersebut
-sudah memuat:
+Dokumen tersebut memuat:
 
 - halaman judul;
 - tabel identitas Kelompok 5;
@@ -215,7 +230,9 @@ sudah memuat:
 - bagian masking, positional encoding, dan transformer block;
 - bagian uji fungsional;
 - ringkasan hasil verifikasi;
-- placeholder Pertanyaan Analisis 1--9 untuk diisi anggota lain;
+- jawaban Pertanyaan Analisis 1--9;
+- hyperlink yang dapat dibuka dengan Ctrl+Click menuju source code, report
+  verifikasi JSON/Markdown, dan metrik training;
 - lampiran perintah menjalankan program.
 
 ### Instalasi `latexmk` pada Windows
@@ -296,7 +313,7 @@ pdflatex Laporan_Tugas_Deep_Learning_Sesi_10.tex
 
 Perintah perlu dijalankan dua kali agar daftar isi dan referensi silang
 terbarui. Laporan saat ini sudah berhasil dikompilasi menjadi
-`Laporan_Tugas_Deep_Learning_Sesi_10.pdf` dengan 11 halaman. File intermediate
+`Laporan_Tugas_Deep_Learning_Sesi_10.pdf` dengan 17 halaman. File intermediate
 LaTeX seperti `.aux`, `.log`, `.fls`, `.fdb_latexmk`, `.out`, dan `.toc`
 diabaikan oleh `.gitignore` dan tidak perlu diunggah ke GitHub.
 
@@ -323,12 +340,12 @@ diabaikan oleh `.gitignore` dan tidak perlu diunggah ke GitHub.
 - [x] Mengisi Pertanyaan Analisis 7--9 (linimasa evolusi RNN, causal vs bidirectional,
   pengayaan modern RoPE).
 - [x] Mengompilasi PDF laporan akhir.
-- [x] Memeriksa PDF akhir secara visual untuk memastikan tabel tidak terpotong,
-  persamaan benar, dan referensi kode tepat.
+- [x] Memeriksa PDF akhir secara visual untuk memastikan daftar isi, tabel,
+  persamaan, dan referensi kode tampil.
 
 ## Catatan Scope
 
-Repository ini sengaja membatasi implementasi pada bagian **Instruksi**.
-Pembahasan konseptual untuk Pertanyaan Analisis, termasuk topik evolusi
-attention/transformer dan pengayaan modern, harus ditambahkan secara terpisah
-oleh anggota kelompok yang ditugaskan.
+Implementasi dan artefak verifikasi berfokus pada bagian **Instruksi**.
+Laporan juga memuat jawaban Pertanyaan Analisis 1--9, termasuk pembahasan
+shape tensor, scaling attention, masking, positional encoding, normalisasi,
+debugging, evolusi arsitektur, serta pengayaan RoPE.
