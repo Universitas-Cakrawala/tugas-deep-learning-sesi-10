@@ -316,7 +316,9 @@ diabaikan oleh `.gitignore` dan tidak perlu diunggah ke GitHub.
 - [x] Uji fungsional pada data sintetis.
 - [x] Bukti overfit satu batch.
 - [x] Template laporan LaTeX.
-- [ ] Mengisi Pertanyaan Analisis 1--9 oleh anggota yang bertanggung jawab.
+- [x] Mengisi Pertanyaan Analisis 1--3 (shape tensor, scaling attention,
+  padding/causal mask).
+- [ ] Mengisi Pertanyaan Analisis 4--9 oleh anggota yang bertanggung jawab.
 - [ ] Menambahkan grafik training ke laporan.
 - [x] Mengompilasi PDF laporan akhir.
 - [ ] Memeriksa PDF akhir secara visual untuk memastikan tabel tidak terpotong,
