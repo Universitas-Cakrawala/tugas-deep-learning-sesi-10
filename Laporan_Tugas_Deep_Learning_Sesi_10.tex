@@ -38,6 +38,10 @@
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\sourcecodelink}{\href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/attention_transformer.py}{\nolinkurl{attention_transformer.py}}}
+\newcommand{\verificationjsonlink}{\href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/artifacts/verification_report.json}{\nolinkurl{artifacts/verification_report.json}}}
+\newcommand{\verificationmdlink}{\href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/artifacts/verification_report.md}{\nolinkurl{artifacts/verification_report.md}}}
+\newcommand{\metricslink}{\href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/artifacts/training_metrics.csv}{\nolinkurl{artifacts/training_metrics.csv}}}
 
 \emergencystretch=2.5em
 \tolerance=1500
@@ -134,10 +138,36 @@ Laporan ini menyajikan implementasi teknis lengkap dari seluruh bagian Instruksi
 \end{table}
 
 \subsection{Artefak Reproduksi}
-Source code utama tersedia pada berkas \code{attention\_transformer.py}.
-Hasil verifikasi disimpan dalam \code{artifacts/verification\_report.json},
-ringkasan pada \code{artifacts/verification\_report.md}, serta metrik pelatihan
-dalam \code{artifacts/training\_metrics.csv}.
+Source code utama tersedia pada berkas \sourcecodelink.
+Hasil verifikasi disimpan dalam \verificationjsonlink, ringkasan pada
+\verificationmdlink, serta metrik pelatihan dalam \metricslink.
+
+\subsection{Tautan Artefak pada Repository}
+Kode dan hasil eksperimen dapat diakses melalui tautan berikut:
+\begin{table}[H]
+    \centering
+    \caption{Tautan artefak kode dan hasil eksperimen}
+    \label{tab:artifact-links}
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{l p{9.5cm}}
+        \toprule
+        \textbf{File} & \textbf{Tautan repository} \\
+        \midrule
+        Source code &
+        \href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/attention_transformer.py}
+        {\nolinkurl{attention\_transformer.py}} \\
+        Verification JSON &
+        \href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/artifacts/verification_report.json}
+        {\nolinkurl{verification\_report.json}} \\
+        Verification report &
+        \href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/artifacts/verification_report.md}
+        {\nolinkurl{verification\_report.md}} \\
+        Training metrics &
+        \href{https://github.com/Universitas-Cakrawala/tugas-deep-learning-sesi-10/blob/main/artifacts/training_metrics.csv}
+        {\nolinkurl{training\_metrics.csv}} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
 \section{Dasar Implementasi}
 
@@ -433,8 +463,7 @@ kecil.
     \end{tabular}
 \end{table}
 
-Metrik per epoch tersedia pada
-\code{artifacts/training\_metrics.csv}. Kurva loss dan akurasi dapat dibuat
+Metrik per epoch tersedia pada \metricslink. Kurva loss dan akurasi dapat dibuat
 dari file tersebut jika visualisasi diperlukan.
 
 \section{Verifikasi Implementasi}
@@ -461,9 +490,8 @@ dari file tersebut jika visualisasi diperlukan.
 \end{table}
 
 Seluruh pemeriksaan dilakukan dengan assertion runtime pada skrip
-\code{attention\_transformer.py}. Ringkasan numerik lengkap dapat dilihat pada berkas
-\code{artifacts/verification\_report.json}; ringkasannya tersedia pada dokumen
-\code{artifacts/verification\_report.md}.
+\sourcecodelink. Ringkasan numerik lengkap dapat dilihat pada berkas
+\verificationjsonlink; ringkasannya tersedia pada dokumen \verificationmdlink.
 
 \section{Pertanyaan Analisis}
 
@@ -474,7 +502,7 @@ Untuk konfigurasi $d\_model=8$, $h=2$ (sehingga $d\_head = d\_model/h = 4$),
 $T=4$, dan $B=2$, shape tensor pada setiap tahap \texttt{MultiHeadAttention}
 adalah sebagai berikut. Nilai ini sesuai dengan hasil pemeriksaan program
 pada \code{shape\_and\_parameter\_verification} di
-\code{attention\_transformer.py} dan Tabel~\ref{tab:verification-summary}.
+\sourcecodelink dan Tabel~\ref{tab:verification-summary}.
 
 \begin{table}[H]
     \centering
@@ -527,7 +555,7 @@ berhenti belajar, dan perilaku ini akan semakin parah ketika $d\_model$
 atau $d\_head$ diperbesar.
 
 \subsection{Padding Mask dan Causal Mask}
-Kedua jenis mask pada \code{attention\_transformer.py} bekerja dengan
+Kedua jenis mask pada \sourcecodelink bekerja dengan
 mekanisme yang sama, yaitu memberi nilai sangat negatif
 (\code{torch.finfo(scores.dtype).min}) pada skor di posisi terlarang sebelum
 softmax dijalankan (fungsi \code{scaled\_dot\_product\_attention}), sehingga
@@ -580,7 +608,11 @@ Pendekatan \textbf{sinusoidal positional encoding} (Vaswani et al., 2017) dan \t
     \item \textbf{Sifat Pergeseran Relatif}: Pendekatan sinusoidal memiliki keunggulan matematis berkat identitas trigonometri $\sin(\alpha + \beta) = \sin\alpha\cos\beta + \cos\alpha\sin\beta$. Untuk sembarang jarak pergeseran tetap $k$, vektor $PE_{pos+k}$ dapat diproyeksikan secara linear dari $PE_{pos}$ melalui transformasi rotasi linear berdimensi $2 \times 2$ pada setiap pasangan kanal frekuensi. Karakteristik ini memudahkan perhatian model mengenali jarak spasial relatif antarposisi. Sementara itu, pada learned embedding, hubungan jarak relatif antarposisi harus dipelajari secara implisit dari variasi data latih.
     \item \textbf{Kemampuan Ekstrapolasi Sekuens}: Rumus sinusoidal terdefinisi untuk sembarang nilai posisi bulat non-negatif $pos \ge 0$, sehingga secara teoretis dapat langsung dievaluasi pada sekuens yang lebih panjang daripada panjang maksimum sekuens saat pelatihan tanpa mengubah struktur model. Sebaliknya, learned position embedding dibatasi secara ketat oleh batas $\text{max\_length}$ yang dialokasikan saat inisialisasi; posisi di luar batas tersebut tidak memiliki vektor bobot dan tidak dapat diproses saat inferensi.
 \end{enumerate}
-Pada implementasi \code{attention\_transformer.py}, kelas \code{SinusoidalPositionalEncoding} disimpan sebagai buffer (\texttt{register\_buffer}) berukuran $(1, 128, 8)$ tanpa menambah parameter pada blok transformer, dan terbukti menghasilkan vektor posisi unik pada setiap indeks sekuens (\code{assert not torch.allclose(positions[0], positions[1])}).
+Pada implementasi \sourcecodelink, kelas \code{SinusoidalPositionalEncoding}
+disimpan sebagai buffer (\texttt{register\_buffer}) berukuran $(1, 128, 8)$
+tanpa menambah parameter pada blok transformer, dan terbukti menghasilkan
+vektor posisi unik pada setiap indeks sekuens
+(\code{assert not torch.allclose(positions[0], positions[1])}).
 
 \subsection{Layer Normalization}
 Layer Normalization (LN) secara fundamental jauh lebih sesuai daripada Batch Normalization (BN) pada arsitektur Transformer untuk pemrosesan data sekuens karena perbedaan arah komputasi statistik normalisasinya:
@@ -630,7 +662,9 @@ reshape().
 Penyebab teknis dari galat ini adalah bahwa operasi \texttt{transpose()} pada PyTorch tidak menyusun ulang atau menyalin elemen tensor di memori fisik (RAM/VRAM), melainkan hanya mengubah skema langkah memori (\emph{strides}). Akibatnya, tata letak memori fisik tensor tidak lagi berurutan secara linier (\emph{non-contiguous}). Karena metode \texttt{.view()} mensyaratkan memori yang utuh dan berurutan agar dapat memetakan dimensi baru secara langsung tanpa alokasi memori ganda, pemanggilan \texttt{.view()} pada tensor hasil transposisi akan gagal.
 
 \subsubsection{Solusi Perbaikan dan Cara Verifikasi}
-Perbaikan dilakukan dengan menambahkan pemanggilan eksplisit \texttt{.contiguous()} tepat sebelum metode \texttt{.view()}, sebagaimana diterapkan pada baris 108--110 \code{attention\_transformer.py}:
+Perbaikan dilakukan dengan menambahkan pemanggilan eksplisit
+\texttt{.contiguous()} tepat sebelum metode \texttt{.view()}, sebagaimana
+diterapkan pada baris 108--110 \sourcecodelink:
 \begin{lstlisting}[language=Python]
 # Implementasi yang benar:
 concatenated = output_heads.transpose(1, 2).contiguous().view(
@@ -681,9 +715,8 @@ python attention_transformer.py
 \end{lstlisting}
 
 \section{Kode atau Output Tambahan}
-Source code lengkap tersedia pada \code{attention\_transformer.py}. Output
-verifikasi yang digunakan untuk mengisi laporan ini tersedia pada
-\code{artifacts/verification\_report.json}, sedangkan metrik per epoch tersedia
-pada \code{artifacts/training\_metrics.csv}.
+Source code lengkap tersedia pada \sourcecodelink. Output verifikasi yang
+digunakan untuk mengisi laporan ini tersedia pada \verificationjsonlink,
+sedangkan metrik per epoch tersedia pada \metricslink.
 
 \end{document}
