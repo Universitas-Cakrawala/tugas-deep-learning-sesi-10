@@ -39,3 +39,7 @@ Thumbs.db
 
 # Planning
 PLAN.md
+
+# Application cache
+DawnCache/
+GPUCache/

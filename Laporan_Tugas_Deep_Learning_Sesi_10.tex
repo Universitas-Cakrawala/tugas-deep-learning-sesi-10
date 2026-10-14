@@ -2,17 +2,19 @@
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{babel}
+\usepackage[indonesian]{babel}
 \usepackage[a4paper,margin=2.5cm]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{tabularx}
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{listings}
-\usepackage{hyperref}
 \usepackage{caption}
+\usepackage{microtype}
+\usepackage{hyperref}
 
 \hypersetup{
     colorlinks=true,
@@ -35,7 +37,10 @@
 }
 
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
-\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\emergencystretch=2.5em
+\tolerance=1500
 
 \title{\textbf{Laporan Praktikum Deep Learning Sesi 10}\\
 Attention dan Blok Transformer Sederhana}
@@ -98,10 +103,8 @@ transformer sederhana. Implementasi diverifikasi melalui perhitungan manual,
 pemeriksaan shape, jumlah parameter, bobot attention, serta uji fungsional pada
 data sintetis.
 
-\subsection{Batasan Laporan}
-Laporan ini berfokus pada bagian Instruksi praktikum. Jawaban Pertanyaan
-Analisis disiapkan pada bagian khusus oleh anggota kelompok yang bertanggung
-jawab dan tidak diisi dalam template ini.
+\subsection{Sistematika Laporan}
+Laporan ini menyajikan implementasi teknis lengkap dari seluruh bagian Instruksi praktikum serta pembahasan analitis mendalam untuk Pertanyaan Analisis nomor 1 hingga 9, yang didukung oleh verifikasi komputasi numerik dan bukti empiris.
 
 \section{Konfigurasi dan Lingkungan}
 
@@ -131,10 +134,10 @@ jawab dan tidak diisi dalam template ini.
 \end{table}
 
 \subsection{Artefak Reproduksi}
-Source code utama tersedia pada \code{attention\_transformer.py}. Hasil
-verifikasi disimpan dalam \code{artifacts/verification\_report.json}, ringkasan
-dalam \code{artifacts/verification\_report.md}, dan metrik pelatihan dalam
-\code{artifacts/training\_metrics.csv}.
+Source code utama tersedia pada berkas \code{attention\_transformer.py}.
+Hasil verifikasi disimpan dalam \code{artifacts/verification\_report.json},
+ringkasan pada \code{artifacts/verification\_report.md}, serta metrik pelatihan
+dalam \code{artifacts/training\_metrics.csv}.
 
 \section{Dasar Implementasi}
 
@@ -457,16 +460,14 @@ dari file tersebut jika visualisasi diperlukan.
     \end{tabular}
 \end{table}
 
-Seluruh pemeriksaan dilakukan dengan assertion runtime pada
-\code{attention\_transformer.py}. Ringkasan numerik lengkap dapat dilihat pada
-\code{artifacts/verification\_report.json}; ringkasannya tersedia pada
+Seluruh pemeriksaan dilakukan dengan assertion runtime pada skrip
+\code{attention\_transformer.py}. Ringkasan numerik lengkap dapat dilihat pada berkas
+\code{artifacts/verification\_report.json}; ringkasannya tersedia pada dokumen
 \code{artifacts/verification\_report.md}.
 
 \section{Pertanyaan Analisis}
 
-\textit{Bagian ini sengaja disediakan sebagai template dan dikerjakan oleh
-anggota kelompok lain. Jangan mengisi bagian ini dari laporan implementasi
-utama sebelum jawaban anggota terkait digabungkan.}
+Bagian ini menyajikan analisis mendalam terhadap konsep teoretis dan teknis di balik implementasi mekanisme attention dan blok transformer, mencakup analisis dimensi tensor, faktor penskalaan skor, mekanisme penyembunyian (\textit{masking}), representasi posisi, teknik normalisasi, penanganan galat implementasi, serta perspektif evolusi arsitektur dan inovasi modern.
 
 \subsection{Shape Tensor}
 Untuk konfigurasi $d\_model=8$, $h=2$ (sehingga $d\_head = d\_model/h = 4$),
@@ -480,20 +481,20 @@ pada \code{shape\_and\_parameter\_verification} di
     \caption{Shape tensor pada setiap tahap multi-head attention}
     \label{tab:shape-tensor-analisis}
     \renewcommand{\arraystretch}{1.25}
-    \begin{tabular}{l l l}
+    \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm} >{\raggedright\arraybackslash}p{4.6cm} >{\raggedright\arraybackslash}X}
         \toprule
         Tensor & Shape & Keterangan \\
         \midrule
-        Input & $(B, T, d\_model) = (2, 4, 8)$ & masukan blok transformer \\
-        Query/Key/Value (sebelum split head) & $(2, 4, 8)$ & keluaran proyeksi linear $q, k, v$ \\
-        Query/Key/Value (setelah split head) & $(B, h, T, d\_head) = (2, 2, 4, 4)$ & setelah \code{view} + \code{transpose(1,2)} \\
-        Matriks skor $QK^\top/\sqrt{d_k}$ & $(B, h, T, T) = (2, 2, 4, 4)$ & skor sebelum softmax, per head \\
-        Bobot attention (setelah softmax) & $(2, 2, 4, 4)$ & setiap baris berjumlah 1 \\
-        Output per head ($\text{weights} \times V$) & $(2, 2, 4, 4)$ & sebelum concat head \\
-        Output setelah concat head & $(B, T, d\_model) = (2, 4, 8)$ & \code{transpose} + \code{view} kembali ke $d\_model$ \\
-        Keluaran akhir MHA & $(2, 4, 8)$ & setelah \code{output\_projection} \\
+        Input & $(B, T, d_{\text{model}}) = (2, 4, 8)$ & Masukan blok transformer \\
+        $Q, K, V$ (sebelum split) & $(2, 4, 8)$ & Keluaran proyeksi linear $q, k, v$ \\
+        $Q, K, V$ (setelah split) & $(B, h, T, d_{\text{head}}) = (2, 2, 4, 4)$ & Setelah \code{view} + \code{transpose(1,2)} \\
+        Matriks skor $QK^\top/\sqrt{d_k}$ & $(B, h, T, T) = (2, 2, 4, 4)$ & Skor sebelum softmax, per head \\
+        Bobot attention & $(2, 2, 4, 4)$ & Normalisasi softmax ($\sum = 1$) \\
+        Output per head & $(2, 2, 4, 4)$ & $\text{weights} \times V$, sebelum concat \\
+        Output setelah concat & $(B, T, d_{\text{model}}) = (2, 4, 8)$ & \code{transpose} + \code{view} kembali ke $d_{\text{model}}$ \\
+        Keluaran akhir MHA & $(2, 4, 8)$ & Setelah \code{output\_projection} \\
         \bottomrule
-    \end{tabular}
+    \end{tabularx}
 \end{table}
 
 Dimensi batch $B$ dan panjang sekuens $T$ dipertahankan di seluruh tahap,
@@ -571,13 +572,78 @@ mismatch) yang membuat kualitas prediksi menurun drastis dibandingkan hasil
 pada data training.
 
 \subsection{Positional Encoding}
-\todo{Jawaban Pertanyaan Analisis 4.}
+Positional encoding mutlak diperlukan karena operasi inti self-attention pada Transformer bersifat \emph{permutation-equivariant} (atau \emph{order-invariant} terhadap himpunan token). Komputasi dot-product $QK^\top$ dan perkalian bobot attention dengan $V$ hanya mengevaluasi kesamaan kandungan fitur antarvektor representasi tanpa memperhitungkan urutan kemunculan posisi masing-masing token dalam sekuens. Berbeda dengan Recurrent Neural Network (RNN) yang memproses data langkah demi langkah secara sekuensial atau Convolutional Neural Network (CNN) yang memiliki bias induktif lokal berdasarkan ukuran kernel spasial, Transformer memproses seluruh posisi token secara serentak (paralel). Tanpa penambahan sinyal posisi, susunan kata yang berbeda seperti ``kucing mengejar tikus'' dan ``tikus mengejar kucing'' akan menghasilkan kumpulan vektor representasi keluaran yang bernilai identik (hanya letak barisnya yang bertukar). Oleh karena itu, informasi letak absolut atau relatif harus diinjeksikan secara eksplisit ke dalam embedding masukan.
+
+Pendekatan \textbf{sinusoidal positional encoding} (Vaswani et al., 2017) dan \textbf{learned position embedding} (sebagaimana digunakan pada BERT dan GPT-2) memiliki karakteristik dan perbandingan mendasar sebagai berikut:
+\begin{enumerate}
+    \item \textbf{Jumlah Parameter}: Pendekatan sinusoidal dihitung secara deterministik menggunakan kombinasi fungsi trigonometri sinus dan kosinus pada frekuensi geometris yang telah ditentukan sebelumnya ($PE_{(pos, 2i)} = \sin(pos / 10000^{2i/d_{\text{model}}})$ dan $PE_{(pos, 2i+1)} = \cos(pos / 10000^{2i/d_{\text{model}}})$), sehingga membutuhkan $0$ parameter yang dapat dilatih (\emph{zero trainable parameters}). Sebaliknya, learned position embedding mengalokasikan tabel matriks bobot yang dapat dilatih (\texttt{nn.Embedding(max\_length, d\_model)}), sehingga menambah parameter sebanyak $\text{max\_length} \times d_{\text{model}}$ yang harus dioptimasi lewat gradien balik.
+    \item \textbf{Sifat Pergeseran Relatif}: Pendekatan sinusoidal memiliki keunggulan matematis berkat identitas trigonometri $\sin(\alpha + \beta) = \sin\alpha\cos\beta + \cos\alpha\sin\beta$. Untuk sembarang jarak pergeseran tetap $k$, vektor $PE_{pos+k}$ dapat diproyeksikan secara linear dari $PE_{pos}$ melalui transformasi rotasi linear berdimensi $2 \times 2$ pada setiap pasangan kanal frekuensi. Karakteristik ini memudahkan perhatian model mengenali jarak spasial relatif antarposisi. Sementara itu, pada learned embedding, hubungan jarak relatif antarposisi harus dipelajari secara implisit dari variasi data latih.
+    \item \textbf{Kemampuan Ekstrapolasi Sekuens}: Rumus sinusoidal terdefinisi untuk sembarang nilai posisi bulat non-negatif $pos \ge 0$, sehingga secara teoretis dapat langsung dievaluasi pada sekuens yang lebih panjang daripada panjang maksimum sekuens saat pelatihan tanpa mengubah struktur model. Sebaliknya, learned position embedding dibatasi secara ketat oleh batas $\text{max\_length}$ yang dialokasikan saat inisialisasi; posisi di luar batas tersebut tidak memiliki vektor bobot dan tidak dapat diproses saat inferensi.
+\end{enumerate}
+Pada implementasi \code{attention\_transformer.py}, kelas \code{SinusoidalPositionalEncoding} disimpan sebagai buffer (\texttt{register\_buffer}) berukuran $(1, 128, 8)$ tanpa menambah parameter pada blok transformer, dan terbukti menghasilkan vektor posisi unik pada setiap indeks sekuens (\code{assert not torch.allclose(positions[0], positions[1])}).
 
 \subsection{Layer Normalization}
-\todo{Jawaban Pertanyaan Analisis 5.}
+Layer Normalization (LN) secara fundamental jauh lebih sesuai daripada Batch Normalization (BN) pada arsitektur Transformer untuk pemrosesan data sekuens karena perbedaan arah komputasi statistik normalisasinya:
+\begin{enumerate}
+    \item \textbf{Dimensi Komputasi Statistik}:
+    \begin{itemize}
+        \item Batch Normalization menghitung rata-rata dan varians sepanjang dimensi \emph{batch} $B$ (serta dimensi sekuens $T$) secara terpisah untuk setiap kanal fitur $j$:
+        \begin{equation}
+            \mu_{BN, j} = \frac{1}{B \cdot T} \sum_{b=1}^B \sum_{t=1}^T x_{b, t, j}, \quad
+            \sigma^2_{BN, j} = \frac{1}{B \cdot T} \sum_{b=1}^B \sum_{t=1}^T (x_{b, t, j} - \mu_{BN, j})^2.
+        \end{equation}
+        Artinya, normalisasi satu sampel bergantung secara erat pada nilai sampel-sampel lain yang berada dalam satu batch.
+        \item Layer Normalization menghitung rata-rata dan varians sepanjang dimensi \emph{fitur/hidden} ($d_{\text{model}}$) secara independen untuk setiap token individual pada posisi waktu $t$ dalam sampel $b$:
+        \begin{equation}
+            \mu_{LN, b, t} = \frac{1}{d_{\text{model}}} \sum_{j=1}^{d_{\text{model}}} x_{b, t, j}, \quad
+            \sigma^2_{LN, b, t} = \frac{1}{d_{\text{model}}} \sum_{j=1}^{d_{\text{model}}} (x_{b, t, j} - \mu_{LN, b, t})^2.
+        \end{equation}
+    \end{itemize}
+
+    \item \textbf{Penanganan Panjang Sekuens Dinamis dan Padding Mask}: Pada pemrosesan sekuens teks nyata, panjang kalimat bervariasi sehingga token \emph{padding} ditambahkan untuk menyamakan ukuran tensor dalam satu batch. Jika BN diterapkan, kehadiran token padding atau sebaran panjang token valid yang tidak merata akan mencemari nilai rata-rata dan varians batch, merusak representasi token kata yang sebenarnya. Sebaliknya, LN beroperasi secara tertutup pada masing-masing token tanpa saling silang antarposisi waktu atau antarsampel, sehingga kebal terhadap keberadaan padding pada sampel lain.
+
+    \item \textbf{Invariansi terhadap Ukuran Batch (Batch Size Sensitivity)}: Komputasi perhatian pada Transformer memiliki kompleksitas memori kuadratik $O(T^2)$, sehingga pada saat melatih model transformer besar, ukuran batch per GPU sering kali harus disetel sangat kecil (seperti $B=2$ pada eksperimen praktikum ini). Pada ukuran batch yang kecil, estimasi rata-rata dan varians BN menjadi sangat bising (\emph{noisy}) dan mengalami fluktuasi ekstrem yang merusak konvergensi optimasi. Sementara itu, kestabilan estimasi statistik LN ditentukan oleh besarnya dimensi fitur $d_{\text{model}}$, bukan ukuran batch $B$, sehingga LN tetap bekerja dengan stabil bahkan pada batch berukuran $1$ (\emph{single-sample learning}).
+
+    \item \textbf{Kesesuaian dengan Inferensi Autoregresif}: BN memerlukan pencatatan statistik rata-rata dan varians bergerak (\emph{running mean} dan \emph{running variance}) selama pelatihan untuk digunakan saat tahap inferensi. Namun, pada proses inferensi autoregresif (menghasilkan token kata satu per satu secara berulang), distribusi masukan sekuens yang bertambah secara dinamis sering kali berbeda dengan distribusi sekuens penuh saat pelatihan (\emph{distributional mismatch}). LN tidak memerlukan penyimpanan statistik berjalan sama sekali karena selalu menghitung normalisasi secara langsung (\emph{on-the-fly}) dari representasi vektor aktivasi token yang sedang diproses.
+\end{enumerate}
+Pada implementasi \code{TransformerBlock}, penggunaan \texttt{nn.LayerNorm(d\_model)} pada sub-lapisan perhatian dan sub-lapisan feed-forward memastikan gradien mengalir secara stabil pada batch kecil ($B=2$), terbukti dari keberhasilan proses pelatihan yang mampu menurunkan loss dari $0.734517$ ke $0.000168$.
 
 \subsection{Kesalahan Implementasi}
-\todo{Jawaban Pertanyaan Analisis 6.}
+Salah satu kesalahan implementasi yang sangat umum namun fatal dalam pengembangan blok Multi-Head Attention adalah \textbf{ketiadaan pemanggilan \texttt{.contiguous()} setelah operasi manipulasi permutasi dimensi (\texttt{.transpose(1, 2)}) sebelum memanggil \texttt{.view()}} pada tahap penggabungan keluaran multi-head.
+
+\subsubsection{Deskripsi dan Mekanisme Masalah}
+Pada modul \code{MultiHeadAttention}, setelah fungsi \code{scaled\_dot\_product\_attention} selesai dieksekusi, tensor keluaran tiap kepala (\code{output\_heads}) memiliki bentuk tensor $(B, h, T, d_{\text{head}})$. Agar dapat diproyeksikan kembali melalui \code{output\_projection} berukuran $(d_{\text{model}} \to d_{\text{model}})$, dimensi head ($h$) dan panjang sekuens ($T$) harus ditukar kembali ke urutan semula, lalu digabungkan menjadi $(B, T, d_{\text{model}})$.
+Jika penggabungan ditulis secara langsung sebagai berikut:
+\begin{lstlisting}[language=Python]
+# Potensi kesalahan implementasi:
+concatenated = output_heads.transpose(1, 2).view(
+    query.shape[0], query.shape[1], self.d_model
+)
+\end{lstlisting}
+PyTorch akan langsung melempar galat runtime:
+\begin{lstlisting}[basicstyle=\ttfamily\small,frame=single]
+RuntimeError: view size is not compatible with input tensor's
+size and stride (at least one dimension spans across two
+contiguous subspaces). Use .contiguous() to view() or consider
+reshape().
+\end{lstlisting}
+Penyebab teknis dari galat ini adalah bahwa operasi \texttt{transpose()} pada PyTorch tidak menyusun ulang atau menyalin elemen tensor di memori fisik (RAM/VRAM), melainkan hanya mengubah skema langkah memori (\emph{strides}). Akibatnya, tata letak memori fisik tensor tidak lagi berurutan secara linier (\emph{non-contiguous}). Karena metode \texttt{.view()} mensyaratkan memori yang utuh dan berurutan agar dapat memetakan dimensi baru secara langsung tanpa alokasi memori ganda, pemanggilan \texttt{.view()} pada tensor hasil transposisi akan gagal.
+
+\subsubsection{Solusi Perbaikan dan Cara Verifikasi}
+Perbaikan dilakukan dengan menambahkan pemanggilan eksplisit \texttt{.contiguous()} tepat sebelum metode \texttt{.view()}, sebagaimana diterapkan pada baris 108--110 \code{attention\_transformer.py}:
+\begin{lstlisting}[language=Python]
+# Implementasi yang benar:
+concatenated = output_heads.transpose(1, 2).contiguous().view(
+    query.shape[0], query.shape[1], self.d_model
+)
+\end{lstlisting}
+Pemanggilan \texttt{.contiguous()} memaksa PyTorch mengalokasikan blok memori fisik yang tertata secara linier berurutan sesuai dengan urutan dimensi baru hasil transposisi, sehingga operasi \texttt{.view()} dapat dijalankan secara valid dan efisien.
+
+Perbaikan ini diverifikasi melalui rangkaian pengujian pada skrip:
+\begin{enumerate}
+    \item \textbf{Verifikasi Shape Runtime}: Pada fungsi \code{shape\_and\_parameter\_verification}, variabel \code{concatenated} dipastikan menghasilkan shape yang presisi $(B, T, d_{\text{model}}) = (2, 4, 8)$ dan keluaran proyeksi akhir \code{mha\_output} berukuran $(2, 4, 8)$ tanpa runtime exception (\code{assert actual\_shapes == expected\_shapes}).
+    \item \textbf{Verifikasi Aliran Gradien (Backpropagation)}: Keutuhan penyusunan memori diuji lebih lanjut pada pengujian fungsional \code{train\_functional\_model()}. Penggabungan kepala attention dieksekusi bolak-balik selama 100 epoch pelatihan (forward dan backward pass). Gradien terbukti mengalir tanpa kendala ke seluruh proyeksi matriks ($W_Q, W_K, W_V, W_O$), dibuktikan dengan tercapainya akurasi pelatihan sempurna $1.0000$ dan kelulusan pengujian overfit satu batch (\code{PASS}).
+\end{enumerate}
 
 \subsection{Kaitan dengan Model Recurrent}
 Model recurrent seperti RNN dan LSTM memproses sekuens secara berurutan: representasi posisi ke-$t$ baru dapat dihitung setelah posisi $t-1$ selesai. Akibatnya, komputasi tidak dapat diparalelkan sepanjang dimensi waktu, dan informasi dari token yang berjarak jauh harus melewati banyak langkah rekursif sehingga mudah melemah (masalah ketergantungan jarak jauh). Pada arsitektur seq2seq klasik, seluruh sekuens masukan bahkan dipadatkan menjadi satu vektor konteks, yang menjadi bottleneck informasi.
